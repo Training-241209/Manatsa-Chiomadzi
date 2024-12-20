@@ -299,6 +299,8 @@ public class SpringERSController {
        }
    }
 
+   
+
    @DeleteMapping("/workers/{id}")
     public ResponseEntity<String> deleteWorker(@PathVariable Long id) {
         try {

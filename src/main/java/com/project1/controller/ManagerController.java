@@ -56,8 +56,8 @@ public class ManagerController {
         try {
             List<Map<String, Object>> roles = jwtService.getRolesFromToken(token);
     
-            return roles.stream()
-                    .anyMatch(role -> "manager".equalsIgnoreCase((String) role.get("role")));
+            return roles.stream().anyMatch(role -> "manager".equalsIgnoreCase((String) role.get("role")));
+            
         } catch (Exception e) {
     
             return false;

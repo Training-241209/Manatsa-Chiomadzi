@@ -52,6 +52,19 @@ public class JwtService {
         }
 
     }
+
+    public boolean isValidToken(String token) {
+        try {
+            Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token);
+            return true;
+        } catch (JwtException e) {
+            return false;
+        }
+    }
+    
     public List<Map<String, Object>> getRolesFromToken(String token) {
         try {
             var claims = Jwts.parserBuilder()
