@@ -2,17 +2,20 @@ package com.project1.controller;
 
 import org.springframework.web.bind.annotation.RestController;
 
+import com.project1.dto.AddRoleDTO;
+import com.project1.dto.IdRequestDTO;
+import com.project1.dto.UpdateStatusDTO;
 import com.project1.entity.Reimbursement;
+import com.project1.entity.Role;
 import com.project1.entity.Worker;
-import com.project1.service.JwtService;
 import com.project1.service.ReimbursementService;
-
+import com.project1.service.RoleService;
 import com.project1.service.WorkerService;
+import com.project1.util.HelperUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -38,53 +42,33 @@ public class ManagerController {
      private ReimbursementService reimbService;
 
      @Autowired
-     private JwtService jwtService;
+     private RoleService roleService;
+
+     private HelperUtil helperUtil = new HelperUtil();
+
 
      public ManagerController(WorkerService workerService) {
          this.workerService = workerService;
      }
 
-     private boolean isAuthorized(HttpServletRequest request) {
-        String authorizationHeader = request.getHeader("Authorization");
-    
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            return false; 
-        }
-    
-        String token = authorizationHeader.substring(7);
-    
-        try {
-            List<Map<String, Object>> roles = jwtService.getRolesFromToken(token);
-    
-            return roles.stream().anyMatch(role -> "manager".equalsIgnoreCase((String) role.get("role")));
-            
-        } catch (Exception e) {
-    
-            return false;
-        }
-    }
-    
 
      @GetMapping("/workers")
      public ResponseEntity<?>getAllWorkers(HttpServletRequest request) {
 
-        request.getHeaderNames().asIterator().forEachRemaining(headerName -> {
-            System.out.println(headerName + ": " + request.getHeader(headerName));
-        });
-
-        if (!isAuthorized(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Manager role required.");
-        }
          List<Worker> workers = workerService.getAllWorkers();
          return ResponseEntity.ok(workers);
+     }
+     
+
+     @GetMapping("/reimbursements")
+     public ResponseEntity<?> getAllReimbursements(HttpServletRequest request) {
+
+         List<Reimbursement> reimbursements = reimbService.getAllReimbursements();
+         return ResponseEntity.ok(reimbursements);
      }
 
      @GetMapping("/reimbursements/pending")
      public ResponseEntity<?> getAllPendingReimbursements(HttpServletRequest request) {
-
-        if (!isAuthorized(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Manager role required.");
-        }
 
          List<Reimbursement> reimbursements = reimbService.getAllPendingReimbursements();
          return ResponseEntity.ok(reimbursements);
@@ -92,11 +76,6 @@ public class ManagerController {
 
      @GetMapping("/reimbursements/{workerId}/pending")
      public ResponseEntity<?> getAllWorkerPendingReimb(@PathVariable Long workerId, HttpServletRequest request) {
-
-        if (!isAuthorized(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Manager role required.");
-        }
-
 
          Worker worker = workerService.findWorkerById(workerId);
 
@@ -106,25 +85,87 @@ public class ManagerController {
          List<Reimbursement> reimbursements = reimbService.getAllPendingReimb(worker);
          return ResponseEntity.ok(reimbursements);
      }
-
-    @PatchMapping("/reimbursements/{reimbId}/resolve")
-    public ResponseEntity<?> resolveReimbursement(@PathVariable Long reimbId, @RequestBody Reimbursement reimbursement, HttpServletRequest request) {
+    @PostMapping("/role")
+    public ResponseEntity<?> addRole(@RequestBody AddRoleDTO addRoleDTO) {
         try {
 
-            if (!isAuthorized(request)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Manager role required.");
+            addRoleDTO.getRole();
+            String workerIdStr = String.valueOf(addRoleDTO.getWorkerId());
+
+
+            if(addRoleDTO.getWorkerId() == null || String.valueOf(addRoleDTO.getWorkerId()).isEmpty() ){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing worker Id");
             }
 
-            String status = reimbursement.getStatus();
-            if (status == null || (!status.equalsIgnoreCase("approved") && !status.equalsIgnoreCase("denied"))) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("invalid status. Allowed values are 'approved' or 'denied'.");
+           if (addRoleDTO.getRole() == null || addRoleDTO.getRole().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing Role to add");
+           }
+
+           if(!helperUtil.isNumeric(workerIdStr)){
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("WorkerId must be numeric");
+           }
+
+
+           if (! (addRoleDTO.getRole().equalsIgnoreCase("manager") || addRoleDTO.getRole().equalsIgnoreCase("employee"))) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid Role");
+           }
+
+            Worker worker = workerService.findWorkerById(addRoleDTO.getWorkerId());
+            
+            if (worker == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Worker not found" + addRoleDTO.getWorkerId());
             }
 
 
-             Reimbursement  reimbExisting = reimbService.findReimbursementById(reimbId);
+            Role defRolePersit = new Role(addRoleDTO.getRole());
+
+            System.out.println(addRoleDTO.getRole());
+
+            if(worker.getRoles().stream().anyMatch(r-> r.getRole().equalsIgnoreCase(addRoleDTO.getRole()))){
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("role already exists");
+            }
+
+            defRolePersit.setWorker(worker);
+            Role persistedRole = roleService.persistRole(defRolePersit);
+            worker.addRole(persistedRole);
+
+            workerService.updateWorker(worker);
+    
+            return ResponseEntity.status(HttpStatus.CREATED).body(persistedRole);
+            
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+        }
+    }
+
+    @PatchMapping("/reimbursement/resolve")
+    public ResponseEntity<?> resolveReimbursement(@RequestBody UpdateStatusDTO updateStatusDTO, HttpServletRequest request) {
+        try {
+
+
+            String statusIdStr = String.valueOf(updateStatusDTO.getReimbId());   
+            if(updateStatusDTO.getReimbId() == null || statusIdStr.isEmpty() ){
+                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing Reimbursement Id");
+            }
+
+           if (updateStatusDTO.getStatus() == null || updateStatusDTO.getStatus().isEmpty()) {
+                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing Status to add");
+           }
+
+           if(!helperUtil.isNumeric(statusIdStr)){
+                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("WorkerId must be numeric");
+           }
+
+            String status = updateStatusDTO.getStatus();
+            if (!status.equalsIgnoreCase("approved") && !status.equalsIgnoreCase("denied")) {
+                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("invalid status. Allowed values are 'approved' or 'denied'.");
+            }
+
+
+             Reimbursement  reimbExisting = reimbService.findReimbursementById(updateStatusDTO.getReimbId());
 
              if (reimbExisting  == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Reimbursement not found with ID: " + reimbId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Reimbursement not found with ID: " + updateStatusDTO.getReimbId());
 
              }
 
@@ -138,41 +179,73 @@ public class ManagerController {
         }
     }
 
-   @DeleteMapping("/reimbursements/{id}")
-   public ResponseEntity<String> deleteAllReimbursements(@PathVariable Long id, HttpServletRequest request) {
+   @DeleteMapping("/reimbursement")
+   public ResponseEntity<String> deleteReimbursement(@RequestBody IdRequestDTO reimId) {
        try {
 
-        if (!isAuthorized(request)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Manager role required.");
-        }
+           Long id = reimId.getId();
+
            Reimbursement reimbOpt = reimbService.findReimbursementById(id);
            if (reimbOpt == null) {
                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Reimbursement not found with ID: " + id);
            }
 
            reimbService.deleteAllReimbursementsById(id);
-           return ResponseEntity.status(HttpStatus.OK).body("All reimbursements deleted successfully");
+           return ResponseEntity.status(HttpStatus.OK).body("Deleted Reimbursement " + id);
        } catch (Exception e) {
+        
            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error deleting reimbursements: " + e.getMessage());
        }
    }
 
-   @DeleteMapping("/workers/{id}")
-    public ResponseEntity<String> deleteWorker(@PathVariable Long id, HttpServletRequest request) {
+
+   @DeleteMapping("/worker")
+    public ResponseEntity<String> deleteWorker(@RequestBody IdRequestDTO workerId) {
         try {
 
-            if (!isAuthorized(request)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied: Manager role required.");
-            }
-
+            Long id = workerId.getId();
             Worker workerOpt = workerService.findWorkerById(id);
             if (workerOpt == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Worker not found with ID: " + id);
             }
+
             workerService.deleteWorkerById(id);
             return ResponseEntity.status(HttpStatus.OK).body("Worker deleted successfully.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error deleting worker: " + e.getMessage());
+        }
+    }
+    
+
+    @DeleteMapping("/workers") 
+    public ResponseEntity<String> deleteAllWorkers() {
+        try {
+            workerService.deleteAllWorkers();
+            return ResponseEntity.status(HttpStatus.OK).body("All workers deleted successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed deleting workers: " + e.getMessage());
+        }
+    }
+ 
+    @DeleteMapping("/roles")
+    public ResponseEntity<String> deleteAllRoles() {
+        try {
+            roleService.deleteAllRoles();
+            return ResponseEntity.status(HttpStatus.OK).body("All roles deleted successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error deleting roles: " + e.getMessage());
+        }
+    }
+ 
+ 
+    @DeleteMapping("/reimbursements")
+    public ResponseEntity<String> deleteAllReimbursements() {
+        try {
+            reimbService.deleteAllReimbursements();
+ 
+            return ResponseEntity.status(HttpStatus.OK).body("All reimbursements deleted successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error deleting reimbursements: " + e.getMessage());
         }
     }
 

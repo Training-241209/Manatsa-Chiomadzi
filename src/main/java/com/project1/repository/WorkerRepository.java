@@ -10,6 +10,7 @@ import com.project1.entity.Worker;
 @Repository
 public interface WorkerRepository extends JpaRepository <Worker, Long> {
     Optional<Worker> findByUsername(String username);
+    
 
     
 }

@@ -34,3 +34,4 @@ build/
 
 .fake
 /src/main/resources/application.properties
+/src/main/java/com/project1/controller/TestController.java

@@ -14,8 +14,6 @@ public class RoleService {
     private RoleRepository roleRepository;
 
     
-
-
     public Role persistRole(Role role){
         return roleRepository.save(role);
     }  
@@ -27,6 +25,7 @@ public class RoleService {
     public List<Role> getAllRoles() {
         return roleRepository.findAll();
     }
+
 
 
 }

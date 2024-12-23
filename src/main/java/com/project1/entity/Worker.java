@@ -2,6 +2,8 @@ package com.project1.entity;
 
 import lombok.*;
 import jakarta.persistence.*;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.ArrayList;
@@ -12,26 +14,26 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@ToString(exclude = "worker")
 @AllArgsConstructor
 public class Worker {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String firstName;
     private String lastName;
     private String username;
 
-    @JsonIgnoreProperties // Ensures password is not exposed in JSON
+    @JsonIgnoreProperties
     private String password;
 
     @OneToMany(mappedBy = "worker", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties("worker")
+
     private List<Role> roles = new ArrayList<>();
 
     @OneToMany(mappedBy = "worker", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties("worker") 
+
     private List<Reimbursement> reimbursements = new ArrayList<>();
 
     public Worker(String firstName, String lastName, String username, String password) {
@@ -49,13 +51,13 @@ public class Worker {
         this.reimbursements.add(reimbursement);
     }
 
-    @Override
-    public String toString() {
-        return "Worker{" +
-                "id=" + id +
-                ", firstName='" + firstName + '\'' +
-                ", lastName='" + lastName + '\'' +
-                ", username='" + username + '\'' +
-                '}';
-    }
+    // @Override
+    // public String toString() {
+    //     return "Worker{" +
+    //             "id=" + id +
+    //             ", firstName='" + firstName + '\'' +
+    //             ", lastName='" + lastName + '\'' +
+    //             ", username='" + username + '\'' +
+    //             '}';
+    // }
 }

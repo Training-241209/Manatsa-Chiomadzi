@@ -10,6 +10,7 @@ import com.project1.repository.WorkerRepository;
 
 @Service
 public class WorkerService {
+
     @Autowired
     private WorkerRepository workerRepository;
 
@@ -17,6 +18,7 @@ public class WorkerService {
         return workerRepository.findById(id).orElse(null);
     }
     public Worker persistWorker(Worker worker){
+        
         return workerRepository.save(worker);
     }  
 
@@ -37,10 +39,12 @@ public class WorkerService {
     public void deleteAllWorkers() {
         workerRepository.deleteAll();;
     }
+    
     public void deleteWorkerById(Long id) {
         workerRepository.deleteById(id);
 
     }
+    
 
     public Optional<Worker> findWorkerByUsername(String username) {
         return workerRepository.findByUsername(username);

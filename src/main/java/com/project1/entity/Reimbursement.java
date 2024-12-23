@@ -1,7 +1,8 @@
 package com.project1.entity;
 
 import lombok.*;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.*;
 
@@ -11,6 +12,7 @@ import jakarta.persistence.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "worker")
 public class Reimbursement {
 
     @Id
@@ -20,23 +22,25 @@ public class Reimbursement {
     private long amount;
 
     private String status = "pending";
+    private String description;
 
     @ManyToOne
     @JoinColumn(name = "worker_id", nullable = false)
+    @JsonIgnore
     private Worker worker;
 
-    public Reimbursement(Worker worker, long amount) {
-        this.amount = amount;
-        this.worker = worker;
+
+    @JsonProperty("workerId")
+    public Long getWorkerId() {
+        return worker != null ? worker.getId() : null;
     }
 
-    @Override
-    public String toString() {
-        return "Reimbursement{" +
-               "id=" + id +
-               ", amount=" + amount +
-               ", status='" + status + '\'' +
-               ", workerId=" + (worker != null ? worker.getId() : "null") +
-               '}';
+    public Reimbursement(Worker worker, long amount, String description) {
+
+        this.amount = amount;
+        this.worker = worker;
+        this.description = description;
     }
+
+
 }

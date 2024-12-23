@@ -1,11 +1,8 @@
 package com.project1.util;
-import java.util.Map;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import org.springframework.beans.factory.annotation.Value;
 import java.util.Base64;
-import java.util.HashMap;
-
 
 import java.util.regex.*;
 
@@ -41,21 +38,15 @@ public class HelperUtil {
     }
 
 
-    public Map<String, String> tokenResponseJson(String accessToken) {
-            Map<String, String> res = new HashMap<>();
-            res.put("token", accessToken);
-            return res;
-    }
-
     public String hash(String password)  throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         byte[] hashBytes = md.digest(password.getBytes());
         return Base64.getEncoder().encodeToString(hashBytes);
     }
 
-    public boolean verifyHash(String password, String hash) throws NoSuchAlgorithmException {
-            return hash.equals(hash(password));
-    }
+    // public boolean verifyHash(String password, String hash) throws NoSuchAlgorithmException {
+    //         return hash.equals(hash(password));
+    // }
 
 
     

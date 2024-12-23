@@ -1,77 +1,81 @@
 package com.project1.filter;
 
-import com.project1.service.JwtService;
+import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.stereotype.Component;
+
+
+import com.project1.util.JwtUtil;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 
-@Component
-public class JwtAuthenticationFilter extends HttpFilter {
+import org.springframework.beans.factory.annotation.Autowired;
 
-    private final JwtService jwtService;
+public class JwtAuthenticationFilter implements Filter {
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
-        this.jwtService = jwtService;
+    private final JwtUtil jwtUtil;
+
+    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
     }
 
+
     @Override
-    protected void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
+    public void doFilter(jakarta.servlet.ServletRequest request, jakarta.servlet.ServletResponse response, FilterChain chain) 
+        throws IOException, ServletException {
 
-        String authHeader = request.getHeader("Authorization");
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
 
+        String authorizationHeader = httpRequest.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7); 
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            httpResponse.getWriter().write("Missing or invalid Authorization header");
+            return;
+        }
 
-            try {
+        String token = authorizationHeader.substring(7);
 
-                Long workerId = jwtService.decodeToken(token); 
-                List<Map<String, Object>> roles = jwtService.getRolesFromToken(token); 
-
-
-                request.setAttribute("workerId", workerId);
-                request.setAttribute("roles", roles);
-
-
-                String path = request.getRequestURI();
-                if (path.startsWith("/api/employee/") && !hasRole(roles, "employee")) {
-                    sendErrorResponse(response, HttpServletResponse.SC_FORBIDDEN, "Access denied: Employee role required.");
-                    return;
-                }
-                if (path.startsWith("/api/manager/") && !hasRole(roles, "manager")) {
-                    sendErrorResponse(response, HttpServletResponse.SC_FORBIDDEN, "Access denied: Manager role required.");
-                    return;
-                }
-
-            } catch (RuntimeException e) {
-
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
-                return;
-            }
+        if (!jwtUtil.validateToken(token)) {
+            httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            httpResponse.getWriter().write("Token is invalid or has been blacklisted");
+            return;
         }
 
 
-        chain.doFilter(request, response);
-    }
 
+        try {
+            String role = jwtUtil.getRole(token);
+            String requestURI = httpRequest.getRequestURI();
 
-    private boolean hasRole(List<Map<String, Object>> roles, String roleName) {
-        return roles.stream()
-                .anyMatch(role -> roleName.equalsIgnoreCase((String) role.get("role")));
-    }
+            if (requestURI.startsWith("/api/employee") && !"employee".equalsIgnoreCase(role)) {
+                httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                httpResponse.getWriter().write("Access Denied: Employee role required");
+                return;
+            }
 
+            if (requestURI.startsWith("/api/manager") && !"manager".equalsIgnoreCase(role)) {
+                httpResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                httpResponse.getWriter().write("Access Denied: Manager role required");
+                return;
+            }
 
-    private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
-        response.setContentType("application/json");
-        response.getWriter().write(String.format("{\"error\": \"%s\"}", message));
+            httpRequest.setAttribute("userId", jwtUtil.getWorkerId(token));
+            httpRequest.setAttribute("role", role);
+
+            // String out = (String) httpRequest.getAttribute("userId");
+
+            // System.out.println(out);
+
+            chain.doFilter(request, response);
+        } catch (Exception e) {
+            httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            httpResponse.getWriter().write("Token is invalid or expired");
+
+     
+        }
     }
 }
