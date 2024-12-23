@@ -86,7 +86,7 @@ public class AuthController {
                 workerRole= "manager";       
             }
 
-            jwtUtil.clearTokenBlackList();
+
             String token = jwtUtil.generateToken(retWorker.getId(), workerRole);
 
             Map<String, Object> response = new HashMap<>();

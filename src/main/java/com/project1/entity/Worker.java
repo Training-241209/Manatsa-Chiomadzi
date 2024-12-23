@@ -2,8 +2,6 @@ package com.project1.entity;
 
 import lombok.*;
 import jakarta.persistence.*;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.ArrayList;
@@ -51,13 +49,4 @@ public class Worker {
         this.reimbursements.add(reimbursement);
     }
 
-    // @Override
-    // public String toString() {
-    //     return "Worker{" +
-    //             "id=" + id +
-    //             ", firstName='" + firstName + '\'' +
-    //             ", lastName='" + lastName + '\'' +
-    //             ", username='" + username + '\'' +
-    //             '}';
-    // }
 }
